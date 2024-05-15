@@ -78,7 +78,7 @@ const getCategoryEmbeddings = async (categories) => {
     
     const response = await openai.embeddings.create(payload);
 
-    const embeddings = response.data.data;
+    const embeddings = response.data;
     const embeddingArrays = embeddings.map(embeddingObject => embeddingObject.embedding);
     return embeddingArrays;
 }
