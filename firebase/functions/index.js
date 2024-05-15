@@ -8,8 +8,8 @@ const config = functions.config();
 
 const EMBEDDING_DIMENSIONS = 2048;
 const EMBEDDING_MODEL = "text-embedding-3-large";
-const OPENAI_API_KEY = config.openai.apiKey;
-const OPENAI_ASSISTANT_ID = config.openai.assistantId;
+const OPENAI_API_KEY = config.openai.apikey;
+const OPENAI_ASSISTANT_ID = config.openai.assistantid;
 
 const openai = new OpenAI({
     apiKey: OPENAI_API_KEY
