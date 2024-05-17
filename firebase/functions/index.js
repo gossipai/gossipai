@@ -1,12 +1,14 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const { Firestore, FieldValue, VectorQuery, VectorQuerySnapshot } = require("@google-cloud/firestore");
+const { Firestore, FieldValue } = require("@google-cloud/firestore");
   
 const OpenAI = require("openai");
 const numeric = require('numeric');
 
 const config = functions.config();
 
+const SIMILAR_NEWS_LIMIT = 50;
+const COSINE_THRESHOLD = 0.749;
 const EMBEDDING_DIMENSIONS = 2048;
 const EMBEDDING_MODEL = "text-embedding-3-large";
 const OPENAI_API_KEY = config.openai.apikey;
@@ -35,12 +37,12 @@ function averageEmbedding(vectors) {
     return numeric.div(sumVector, vectors.length);
 }
 
-async function getCategories(title){
+async function getKeywords(title){
 
     const thread = await openai.beta.threads.create();
     await openai.beta.threads.messages.create(thread.id, {
         role: "user",
-        content: `{"title":"${title}"}`,
+        content: `"${title}"`,
     });
     
     const run = await openai.beta.threads.runs.create(thread.id, {
@@ -67,12 +69,12 @@ async function getCategories(title){
 
     const resultText = lastMessageForRun.content[0].text.value;
     const resultJSON = JSON.parse(resultText);
-    return resultJSON.categories;
+    return resultJSON.keywords;
 }
 
-const getCategoryEmbeddings = async (categories) => {
+const getKeywordEmbeddings = async (keywords) => {
     const payload = {
-        "input": categories,
+        "input": keywords,
         "dimensions": EMBEDDING_DIMENSIONS,
         "model": EMBEDDING_MODEL
     };
@@ -89,8 +91,7 @@ exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpda
     const newsData = change.after.data();
     const { documentId } = context.params;
 
-    // if new data has field "embedding" and "categories"
-    if (!(newsData.embedding && newsData.categories)) {
+    if (!(newsData.embedding && newsData.keywords)) {
         return;
     }
 
@@ -100,24 +101,39 @@ exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpda
     
     logger.info(`Searching ${documentId} similar news...`);
 
-
     const coll = db.collection('news');
 
     const vectorQuery = coll.findNearest('embedding', FieldValue.vector(newsData.embedding.value),
     {
-        limit: 5,
-        distanceMeasure: 'COSINE'
+        limit: SIMILAR_NEWS_LIMIT,
+        distanceMeasure: 'COSINE',
     });
       
     const vectorQuerySnapshot = await vectorQuery.get();
 
-    // get ids of similar news
-    const similarNews = vectorQuerySnapshot.docs.filter(doc => doc.id !== documentId).map(doc => doc.id);
-
+    const similarNews = vectorQuerySnapshot.docs.filter(doc => doc.id !== documentId).map(doc => {
+        return {
+            id: doc.id,
+            ...doc.data()
+        }}
+    );
+    
+    similarNews.map(similarArticle => {
+        const cosine = numeric.dot(newsData.embedding.value, similarArticle.embedding._values) / (numeric.norm2(newsData.embedding.value) * numeric.norm2(similarArticle.embedding._values));
+        similarArticle.cosine = cosine;
+    }).filter(similarArticle => similarArticle.cosine > COSINE_THRESHOLD);
+    
     const article = coll.doc(documentId);
 
     await article.update({
-        similarNews: similarNews
+        similarNews: 
+            similarNews.map(article => {
+                return {
+                    id: article.id,
+                    title: article.title,
+                    cosine: article.cosine
+                }
+            })
     });
 
     logger.info(`Updated ${documentId} with similar news...`);
@@ -133,15 +149,16 @@ exports.onNewsCreate = functions.firestore.document("/news/{documentId}").onCrea
     
     logger.info(`Start processings document ${documentId}`);
     try {
-        const categories = await getCategories(newsData.title);
-        const embeddings = await getCategoryEmbeddings(categories);
+        const keywords = await getKeywords(newsData.title);
+        const embeddings = await getKeywordEmbeddings(keywords);
         const embeddingsAverage = averageEmbedding(embeddings);        
 
         const article = db.collection('news').doc(documentId);
 
         await article.update({
             embedding: FieldValue.vector(embeddingsAverage),
-            categories: categories
+            keywords: keywords,
+            category: keywords[0]
         });
 
         logger.info(`Document ${documentId} processed successfully`);
