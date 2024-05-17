@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const { Firestore, FieldValue } = require("@google-cloud/firestore");
+const { Firestore, FieldValue, VectorQuery, VectorQuerySnapshot } = require("@google-cloud/firestore");
+  
 const OpenAI = require("openai");
 const numeric = require('numeric');
 
@@ -66,7 +67,7 @@ async function getCategories(title){
 
     const resultText = lastMessageForRun.content[0].text.value;
     const resultJSON = JSON.parse(resultText);
-    return resultJSON.news[0].categories;
+    return resultJSON.categories;
 }
 
 const getCategoryEmbeddings = async (categories) => {
@@ -81,7 +82,50 @@ const getCategoryEmbeddings = async (categories) => {
     const embeddings = response.data;
     const embeddingArrays = embeddings.map(embeddingObject => embeddingObject.embedding);
     return embeddingArrays;
+
 }
+
+exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpdate(async (change, context) => {
+    const newsData = change.after.data();
+    const { documentId } = context.params;
+
+    // if new data has field "embedding" and "categories"
+    if (!(newsData.embedding && newsData.categories)) {
+        return;
+    }
+
+    if (newsData.similarNews) {
+        return;
+    }
+    
+    logger.info(`Searching ${documentId} similar news...`);
+
+
+    const coll = db.collection('news');
+
+    const vectorQuery = coll.findNearest('embedding', FieldValue.vector(newsData.embedding.value),
+    {
+        limit: 5,
+        distanceMeasure: 'COSINE'
+    });
+      
+    const vectorQuerySnapshot = await vectorQuery.get();
+
+    // get ids of similar news
+    const similarNews = vectorQuerySnapshot.docs.filter(doc => doc.id !== documentId).map(doc => doc.id);
+
+    const article = coll.doc(documentId);
+
+    await article.update({
+        similarNews: similarNews
+    });
+
+    logger.info(`Updated ${documentId} with similar news...`);
+
+    return;
+
+});
+
 
 exports.onNewsCreate = functions.firestore.document("/news/{documentId}").onCreate(async (snap, context) => {
     const newsData = snap.data();
@@ -96,11 +140,14 @@ exports.onNewsCreate = functions.firestore.document("/news/{documentId}").onCrea
         const article = db.collection('news').doc(documentId);
 
         await article.update({
-            embedding: FieldValue.vector(embeddingsAverage)
+            embedding: FieldValue.vector(embeddingsAverage),
+            categories: categories
         });
 
         logger.info(`Document ${documentId} processed successfully`);
     } catch (error) {
         logger.error(`Error processing document ${documentId}:`, error);
     }
+
+    return;
 });
