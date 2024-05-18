@@ -103,11 +103,14 @@ exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpda
 
     const coll = db.collection('news');
 
-    const vectorQuery = coll.findNearest('embedding', FieldValue.vector(newsData.embedding.value),
-    {
-        limit: SIMILAR_NEWS_LIMIT,
-        distanceMeasure: 'COSINE',
-    });
+    const vectorQuery = coll.
+    where('language', '==', newsData.language)
+    .findNearest('embedding', FieldValue.vector(newsData.embedding.value),
+        {
+            limit: SIMILAR_NEWS_LIMIT,
+            distanceMeasure: 'COSINE',
+        }
+    );
       
     const vectorQuerySnapshot = await vectorQuery.get();
 
@@ -121,17 +124,21 @@ exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpda
     similarNews.map(similarArticle => {
         const cosine = numeric.dot(newsData.embedding.value, similarArticle.embedding._values) / (numeric.norm2(newsData.embedding.value) * numeric.norm2(similarArticle.embedding._values));
         similarArticle.cosine = cosine;
-    }).filter(similarArticle => similarArticle.cosine > COSINE_THRESHOLD);
+    });
+
+    const similarNewsFiltered = similarNews.filter(article => article.cosine > COSINE_THRESHOLD);
     
     const article = coll.doc(documentId);
 
     await article.update({
         similarNews: 
-            similarNews.map(article => {
+            similarNewsFiltered.map(article => {
                 return {
                     id: article.id,
                     title: article.title,
-                    cosine: article.cosine
+                    cosine: article.cosine,
+                    category: article.category,
+                    language: article.language
                 }
             })
     });
