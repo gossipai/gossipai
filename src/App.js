@@ -1,18 +1,19 @@
-import { AuthProvider } from './firebase/auth';
-import logo from './logo.svg';
 import './App.css';
-import { Stack, Typography, Card, CardOverflow, Chip, AspectRatio, CardContent, TabPanel } from '@mui/joy';
-import Layout from './Layout';
-import ForYouPage from './ForYouPage';
-import ArticlePage from './ArticlePage';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ForYouPage from './pages/ForYouPage';
+import ArticlePage from './pages/ArticlePage';
+import { Route, Routes } from 'react-router-dom';
+
 
 function App() {
   return (
-    <>
-      <TabPanel value="foryoupage" sx={{p:0}}>
-        <ArticlePage />
-      </TabPanel>
-    </>
+    <Routes>
+      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<ForYouPage />} />
+      <Route path="/article/:articleId" element={<ArticlePage />} />
+    </Routes>
   );
 }
 
