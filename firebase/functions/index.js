@@ -197,3 +197,10 @@ exports.onNewsCreate = functions.firestore.document("/news/{documentId}").onCrea
 
     return;
 });
+
+exports.createUserDocument = functions.auth.user().onCreate((user) => {
+    const userRef = db.collection("users").doc(user.uid);
+    return userRef.set({
+        newsRead: []
+    });
+  });
