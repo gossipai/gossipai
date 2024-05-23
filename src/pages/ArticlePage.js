@@ -1,14 +1,17 @@
 import { Box, Stack, Typography, Card, IconButton, CardCover, CardContent } from '@mui/joy';
 import { AccessTime, ArrowBack, Newspaper } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import formatTimePassed from '../utils/formatTimePassed'
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../firebase/auth';
 
 export default function ArticlePage({ articleId, onBack }) {
 
   const navigate = useNavigate();
+
+  const { authUser } = useAuth();
 
   const [ article, setArticle ] = useState({});
 
@@ -24,6 +27,23 @@ export default function ArticlePage({ articleId, onBack }) {
     });
     
   }, [articleId]);
+
+  useEffect(async () => {
+    const userRef = doc(db, "users", authUser.uid);
+    getDoc(userRef).then(async (doc) => {
+      if (doc.exists()) {
+        const user = doc.data();
+        const newsRead = user.newsRead;
+        if (!newsRead.includes(articleId)) {
+          newsRead.push(articleId);
+          await setDoc(userRef, { newsRead });
+        }
+      } else {
+        console.log("No such document!");
+      }
+    });
+  }, []
+);
 
   return (
     <Stack spacing={2} direction="column" sx={{height:1}}>
