@@ -7,7 +7,7 @@ const numeric = require('numeric');
 
 const config = functions.config();
 
-const SIMILAR_NEWS_LIMIT = 50;
+const SIMILAR_NEWS_LIMIT = 20;
 const COSINE_THRESHOLD = 0.749;
 const EMBEDDING_DIMENSIONS = 2048;
 const EMBEDDING_MODEL = "text-embedding-3-large";
@@ -91,61 +91,83 @@ exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpda
     const newsData = change.after.data();
     const { documentId } = context.params;
 
-    if (!(newsData.embedding && newsData.keywords)) {
-        return;
-    }
-
+    // if similar news exist, find related customers and send the article
     if (newsData.similarNews) {
+
+        const users = new Set();
+
+        const similarNewsIds = newsData.similarNews.map(article => article.id)
+        const userNewsQuery = db.collection('users').where("newsRead", "array-contains-any", similarNewsIds);
+        
+        const userNewsSnapshot = await userNewsQuery.get();
+
+        userNewsSnapshot.forEach(user => {
+            users.add(user.id);
+        });
+        
+        if(users.size > 0){
+          const currentArticle = db.collection("finalNews").doc(documentId);
+          currentArticle.set({
+            recommendedUsers: [...users],
+            ...newsData
+          });
+        }
+        
         return;
     }
+
+    // if similar news do not exist, find KNNs and add to document
+    if (newsData.embedding && newsData.keywords) {
+        logger.info(`Searching ${documentId} similar news...`);
+
+        const coll = db.collection('news');
+
+        const vectorQuery = coll.
+        where('language', '==', newsData.language)
+        .findNearest('embedding', FieldValue.vector(newsData.embedding.value),
+            {
+                limit: SIMILAR_NEWS_LIMIT,
+                distanceMeasure: 'COSINE',
+            }
+        );
+        
+        const vectorQuerySnapshot = await vectorQuery.get();
+
+        const similarNews = vectorQuerySnapshot.docs.filter(doc => doc.id !== documentId).map(doc => {
+            return {
+                id: doc.id,
+                ...doc.data()
+            }}
+        );
+        
+        similarNews.forEach(similarArticle => {
+            const cosine = numeric.dot(newsData.embedding.value, similarArticle.embedding._values) / (numeric.norm2(newsData.embedding.value) * numeric.norm2(similarArticle.embedding._values));
+            similarArticle.cosine = cosine;
+        });
+
+        const similarNewsFiltered = similarNews.filter(article => article.cosine > COSINE_THRESHOLD);
+        
+        const article = coll.doc(documentId);
+
+        await article.update({
+            similarNews: 
+                similarNewsFiltered.map(article => {
+                    return {
+                        id: article.id,
+                        title: article.title,
+                        cosine: article.cosine,
+                        category: article.category,
+                        language: article.language
+                    }
+                })
+        });
+
+        logger.info(`Updated ${documentId} with similar news...`);
+
+        return;
+    }
+
     
-    logger.info(`Searching ${documentId} similar news...`);
-
-    const coll = db.collection('news');
-
-    const vectorQuery = coll.
-    where('language', '==', newsData.language)
-    .findNearest('embedding', FieldValue.vector(newsData.embedding.value),
-        {
-            limit: SIMILAR_NEWS_LIMIT,
-            distanceMeasure: 'COSINE',
-        }
-    );
-      
-    const vectorQuerySnapshot = await vectorQuery.get();
-
-    const similarNews = vectorQuerySnapshot.docs.filter(doc => doc.id !== documentId).map(doc => {
-        return {
-            id: doc.id,
-            ...doc.data()
-        }}
-    );
-    
-    similarNews.map(similarArticle => {
-        const cosine = numeric.dot(newsData.embedding.value, similarArticle.embedding._values) / (numeric.norm2(newsData.embedding.value) * numeric.norm2(similarArticle.embedding._values));
-        similarArticle.cosine = cosine;
-    });
-
-    const similarNewsFiltered = similarNews.filter(article => article.cosine > COSINE_THRESHOLD);
-    
-    const article = coll.doc(documentId);
-
-    await article.update({
-        similarNews: 
-            similarNewsFiltered.map(article => {
-                return {
-                    id: article.id,
-                    title: article.title,
-                    cosine: article.cosine,
-                    category: article.category,
-                    language: article.language
-                }
-            })
-    });
-
-    logger.info(`Updated ${documentId} with similar news...`);
-
-    return;
 
 });
 
