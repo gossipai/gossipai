@@ -1,11 +1,19 @@
-import { Box, Sheet, Stack } from "@mui/joy";
+import { Box, Divider, Grid, Sheet, Stack } from "@mui/joy";
+import Logo from "./Logo";
 
 export default function LayoutAuth({children}) {
   return (
     <Sheet sx={{height: "100vh"}} variant="solid" color="primary" invertedColors>
         <Stack direction="column" height={1}>
             <Box sx={{height: 50, overflowY: "scroll"}} flexGrow={1}>
-                {children}
+              <Grid container justifyContent="center" alignItems="center" p={3}>
+                <Grid xs={12} md={8} lg={4}>
+                  <Box sx={{mb:4}}>
+                    <Logo color="white"/>
+                  </Box>
+                  {children}
+                </Grid>
+              </Grid>
             </Box>
         </Stack>
     </Sheet>

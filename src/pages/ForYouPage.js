@@ -1,4 +1,4 @@
-import { CircularProgress, Modal, ModalDialog, Stack, Button } from '@mui/joy';
+import { CircularProgress, Modal, ModalDialog, Stack, Button, Typography, Box, Avatar } from '@mui/joy';
 import ArticlePage from './ArticlePage';
 import NewsCard from '../components/NewsCard';
 import Layout from '../components/Layout';
@@ -6,6 +6,7 @@ import { collection, getDocs, orderBy, query, where, limit, startAfter } from 'f
 import { db } from '../firebase/firebase';
 import { useAuth } from '../firebase/auth';
 import { useEffect, useState } from 'react';
+import { PsychologyAlt } from '@mui/icons-material';
 
 export default function ForYouPage() {
 
@@ -56,12 +57,24 @@ export default function ForYouPage() {
   return (
     <Layout>
       <Stack spacing={2} p={2} direction="column">
-        {news.map((article) => 
+        {news && news.length == 0 &&
+        <Box sx={{textAlign: "center"}}>
+          <Avatar size="lg" color="primary" sx={{mx: "auto", height:60, width:60}}>
+            <PsychologyAlt sx={{fontSize: 40}}/>
+          </Avatar>
+          <Typography>
+            No recommended news available for you yet.
+          </Typography>
+          <Typography>
+            Please browse more articles on the Discover page and help us to get to know you better!
+          </Typography>
+        </Box>
+        }
+        {news && news.length>0 && news.map((article) => 
           <NewsCard key={article.id} article={article} onClick={handleArticleClick} />
         )}
-        {loading && <CircularProgress />}
-        {!loading && hasMore && (
-          <Button onClick={fetchNews}>
+        {hasMore && (
+          <Button loading={loading} color="primary" onClick={fetchNews}>
             Load More
           </Button>
         )}

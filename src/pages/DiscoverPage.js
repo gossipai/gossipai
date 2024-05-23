@@ -55,9 +55,8 @@ export default function DiscoverPage() {
         {news.map((article, index) => 
           <NewsCard key={article.id} article={article} onClick={handleArticleClick} />
         )}
-        {loading && <CircularProgress />}
-        {!loading && hasMore && (
-          <Button onClick={fetchNews}>
+        {hasMore && (
+          <Button loading={loading} color="primary" onClick={fetchNews}>
             Load More
           </Button>
         )}

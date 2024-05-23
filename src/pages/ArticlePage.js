@@ -3,47 +3,63 @@ import { AccessTime, ArrowBack, Newspaper } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
-import formatTimePassed from '../utils/formatTimePassed'
-import { useNavigate } from 'react-router-dom';
+import formatTimePassed from '../utils/formatTimePassed';
 import { useAuth } from '../firebase/auth';
 
 export default function ArticlePage({ articleId, onBack }) {
-
-  const navigate = useNavigate();
-
   const { authUser } = useAuth();
-
-  const [ article, setArticle ] = useState({});
+  const [article, setArticle] = useState({});
 
   useEffect(() => {
+    let isMounted = true;
+
     getDoc(doc(db, "news", articleId)).then((doc) => {
-      if (doc.exists()) {
-        setArticle(doc.data());
-      } else {
-        console.log("No such document!");
+      if (isMounted) {
+        if (doc.exists()) {
+          setArticle(doc.data());
+        } else {
+          console.log("No such document!");
+        }
       }
     }).catch((error) => {
-      console.log("Error getting document:", error);
-    });
-    
-  }, [articleId]);
-
-  useEffect(async () => {
-    const userRef = doc(db, "users", authUser.uid);
-    getDoc(userRef).then(async (doc) => {
-      if (doc.exists()) {
-        const user = doc.data();
-        const newsRead = user.newsRead;
-        if (!newsRead.includes(articleId)) {
-          newsRead.push(articleId);
-          await setDoc(userRef, { newsRead });
-        }
-      } else {
-        console.log("No such document!");
+      if (isMounted) {
+        console.log("Error getting document:", error);
       }
     });
-  }, []
-);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [articleId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const updateUserReadArticles = async () => {
+      const userRef = doc(db, "users", authUser.uid);
+      const userDoc = await getDoc(userRef);
+      if (isMounted && userDoc.exists()) {
+        const user = userDoc.data();
+        const newsRead = user.newsRead || [];
+        if (!newsRead.includes(articleId)) {
+          newsRead.push(articleId);
+          await setDoc(userRef, { newsRead }, { merge: true });
+        }
+      } else if (isMounted) {
+        console.log("No such document!");
+      }
+    };
+
+    updateUserReadArticles().catch((error) => {
+      if (isMounted) {
+        console.log("Error updating document:", error);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [articleId, authUser.uid]);
 
   return (
     <Stack spacing={2} direction="column" sx={{height:1}}>
