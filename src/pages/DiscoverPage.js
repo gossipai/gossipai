@@ -1,15 +1,12 @@
-import { CircularProgress, Modal, ModalDialog, Stack, Button } from '@mui/joy';
-import ArticlePage from './ArticlePage';
+import { Stack, Button, CircularProgress, Modal, ModalDialog } from '@mui/joy';
 import NewsCard from '../components/NewsCard';
 import Layout from '../components/Layout';
-import { collection, getDocs, orderBy, query, where, limit, startAfter } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
-import { useAuth } from '../firebase/auth';
 import { useEffect, useState } from 'react';
+import { db } from '../firebase/firebase';
+import { collection, getDocs, query, orderBy, limit, startAfter } from 'firebase/firestore';
+import ArticlePage from './ArticlePage';
 
-export default function ForYouPage() {
-
-  const { authUser } = useAuth();
+export default function DiscoverPage() {
 
   const [news, setNews] = useState([]);
   const [lastDoc, setLastDoc] = useState(null);
@@ -24,8 +21,7 @@ export default function ForYouPage() {
   const fetchNews = async () => {
     setLoading(true);
     let q = query(
-      collection(db, "finalNews"), 
-      where("recommendedUsers", "array-contains", authUser.uid), 
+      collection(db, "news"),
       orderBy("dateTime", "desc"),
       limit(10)
     );
@@ -56,7 +52,7 @@ export default function ForYouPage() {
   return (
     <Layout>
       <Stack spacing={2} p={2} direction="column">
-        {news.map((article) => 
+        {news.map((article, index) => 
           <NewsCard key={article.id} article={article} onClick={handleArticleClick} />
         )}
         {loading && <CircularProgress />}

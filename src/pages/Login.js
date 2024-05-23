@@ -1,8 +1,23 @@
+import { useState } from "react";
 import { Button, FormLabel, Grid, Input, Stack } from "@mui/joy";
 import LayoutAuth from "../components/LayoutAuth";
 import { Link } from "react-router-dom";
 
+import { useAuth } from "../firebase/auth";
+
+
 export default function Login() {
+
+  const { login } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    await login(email, password);
+  }
+
   return (
     <LayoutAuth>
       <Grid container justifyContent="center" alignItems="center" p={3}>
@@ -10,15 +25,19 @@ export default function Login() {
           <Stack direction="column" spacing={2}>
             <h1>GossipAI</h1>
             <h2>Sign In</h2>
-            <form>
-              <Stack direction="column" spacing={0.5}>
+            <form onSubmit={handleLogin}>
+              <Stack direction="column" spacing={1}>
                 <FormLabel>E-mail</FormLabel>
-                <Input variant="soft" type="email" placeholder="Enter your e-mail" />
+                <Input
+                onChange={(e) => setEmail(e.target.value)}
+                variant="soft" type="email" placeholder="Enter your e-mail" />
                 <FormLabel>Password</FormLabel>
-                <Input variant="soft" type="password"/>
+                <Input
+                onChange={(e) => setPassword(e.target.value)}
+                variant="soft" type="password"/>
+                <Button type="submit">Login</Button>
               </Stack>
             </form>
-            <Button type="submit">Login</Button>
             <Link to="/register">Don't have an account? Register</Link>
           </Stack>
         </Grid>
