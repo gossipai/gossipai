@@ -1,10 +1,13 @@
-import { Stack, Button, CircularProgress, Modal, ModalDialog } from '@mui/joy';
+import { Box, Chip, Stack, Button, CircularProgress, Modal, ModalDialog } from '@mui/joy';
 import NewsCard from '../components/NewsCard';
 import Layout from '../components/Layout';
 import { useEffect, useState } from 'react';
 import { db } from '../firebase/firebase';
-import { collection, getDocs, query, orderBy, limit, startAfter } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, startAfter } from 'firebase/firestore';
 import ArticlePage from './ArticlePage';
+
+import categories from '../globals';
+import CategoryLinkChip from '../components/CategoryLinkChip';
 
 export default function DiscoverPage() {
 
@@ -13,6 +16,7 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const handleArticleClick = (id) => {
     setSelectedArticle(id);
@@ -25,6 +29,10 @@ export default function DiscoverPage() {
       orderBy("dateTime", "desc"),
       limit(10)
     );
+
+    if (selectedCategory) {
+      q = query(q, where("category", "==", selectedCategory));
+    }
 
     if (lastDoc) {
       q = query(q, startAfter(lastDoc));
@@ -47,11 +55,33 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     fetchNews();
-  }, []);
+  }, [selectedCategory]);
 
   return (
     <Layout>
       <Stack spacing={2} p={2} direction="column">
+        <Box
+        sx={{display: 'inline-block', width: 1, overflowX: 'auto', whiteSpace: 'nowrap'}}
+        >
+          { 
+          categories.map((category) => 
+            <CategoryLinkChip selected={selectedCategory === category} key={category} category={category} onClick={()=>{
+              if (selectedCategory === category) {
+                setSelectedCategory(null);
+                setNews([]);
+                setLastDoc(null);
+                setHasMore(true);
+                return;
+              }else{
+                setSelectedCategory(category);
+                setNews([]);
+                setLastDoc(null);
+                setHasMore(true);
+              }
+            }}
+            />
+          )}
+        </Box>
         {news.map((article, index) => 
           <NewsCard key={article.id} article={article} onClick={handleArticleClick} />
         )}
