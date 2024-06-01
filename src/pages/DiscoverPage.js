@@ -1,4 +1,4 @@
-import { Box, Chip, Stack, Button, CircularProgress, Modal, ModalDialog } from '@mui/joy';
+import { Sheet,  Stack, Button, Modal, ModalDialog } from '@mui/joy';
 import NewsCard from '../components/NewsCard';
 import Layout from '../components/Layout';
 import { useEffect, useState } from 'react';
@@ -59,29 +59,30 @@ export default function DiscoverPage() {
 
   return (
     <Layout>
-      <Stack spacing={2} p={2} direction="column">
-        <Box
-        sx={{display: 'inline-block', width: 1, overflowX: 'auto', whiteSpace: 'nowrap'}}
-        >
-          { 
-          categories.map((category) => 
-            <CategoryLinkChip selected={selectedCategory === category} key={category} category={category} onClick={()=>{
-              if (selectedCategory === category) {
-                setSelectedCategory(null);
-                setNews([]);
-                setLastDoc(null);
-                setHasMore(true);
-                return;
-              }else{
-                setSelectedCategory(category);
-                setNews([]);
-                setLastDoc(null);
-                setHasMore(true);
-              }
-            }}
-            />
-          )}
-        </Box>
+      <Sheet
+      variant="plain"
+      sx={{p:1, zIndex: 100, borderTop:1, borderBottom:1, borderColor:"divider", mt: "-1px", display: 'inline-block', width: 1, overflowX: 'auto', whiteSpace: 'nowrap', position:'fixed'}}
+      >
+        { 
+        categories.map((category) => 
+          <CategoryLinkChip selected={selectedCategory === category} key={category} category={category} onClick={()=>{
+            if (selectedCategory === category) {
+              setSelectedCategory(null);
+              setNews([]);
+              setLastDoc(null);
+              setHasMore(true);
+              return;
+            }else{
+              setSelectedCategory(category);
+              setNews([]);
+              setLastDoc(null);
+              setHasMore(true);
+            }
+          }}
+          />
+        )}
+      </Sheet>
+      <Stack spacing={2} p={2} direction="column" mt={5}>
         {news.map((article, index) => 
           <NewsCard key={article.id} article={article} onClick={handleArticleClick} />
         )}
