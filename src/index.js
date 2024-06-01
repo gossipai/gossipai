@@ -9,7 +9,7 @@ import { CssBaseline } from '@mui/joy';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-    <CssVarsProvider defaultMode="dark">
+    <CssVarsProvider defaultMode="system">
       <CssBaseline />
         <BrowserRouter>
           <App />
