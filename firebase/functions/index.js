@@ -1,7 +1,8 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const { Firestore, FieldValue } = require("@google-cloud/firestore");
-  
+
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, } = require("@google/generative-ai");
 const OpenAI = require("openai");
 const numeric = require('numeric');
 
@@ -13,11 +14,14 @@ const EMBEDDING_DIMENSIONS = 2048;
 const EMBEDDING_MODEL = "text-embedding-3-large";
 const OPENAI_API_KEY = config.openai.apikey;
 const OPENAI_ASSISTANT_ID = config.openai.assistantid;
+const GEMINI_API_KEY = config.gemini.apikey;
 
 const openai = new OpenAI({
     apiKey: OPENAI_API_KEY
 });
 
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  
 admin.initializeApp();
 
 const db = new Firestore();
@@ -204,3 +208,114 @@ exports.createUserDocument = functions.auth.user().onCreate((user) => {
         newsRead: []
     });
   });
+
+const getSummary = async (content) => {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: "Your task is to read and summarize news articles. Here are the guidelines to follow:\n\nUnderstand the Article: Carefully read the entire news article to grasp its main points and overall message.\n\nIdentify Key Information: Focus on the most critical aspects of the article, such as:\n\nThe main event or topic being discussed.\nImportant dates, names, and places.\nKey facts, figures, and statistics.\nQuotes from relevant individuals, if they add significant value.\nCreate a Concise Summary: Condense the article into a summary that captures the essence of the original content. The summary should be:\n\nClear and Coherent: Ensure that the summary makes sense on its own, without needing to refer back to the original article.\nInformative: Include all important information that gives a complete picture of the article’s content.\nBrief: Keep the summary short and to the point, ideally within 3-5 sentences.\nAvoid Redundancy: Do not repeat information or include unnecessary details. Focus on providing a streamlined version of the article.\n\nMaintain Neutral Tone: Write the summary in a neutral tone, without adding any personal opinions or biases.\n\nUse Simple Language: Ensure the summary is easily understandable, avoiding complex jargon or technical terms unless absolutely necessary",
+    });
+
+    const generationConfig = {
+        temperature: 1,
+        topP: 0.95,
+        topK: 64,
+        maxOutputTokens: 8192,
+        responseMimeType: "text/plain",
+    };
+
+    const safetySettings = [
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+    ];
+
+    const chatSession = model.startChat({
+        generationConfig,
+        safetySettings,
+        history: [],
+    });
+    
+    const result = await chatSession.sendMessage(content);
+    return result.response.text();
+}
+
+exports.getArticleSummary = functions.https.onCall(
+    async (data, context) => {
+    const { articleId, body } = data;
+    const articleRef = db.collection("news").doc(articleId);
+    const articleDoc = await articleRef.get();
+    if (!articleDoc.exists) {
+        throw new functions.https.HttpsError("not-found", "Article not found");
+    }
+    const summary = await getSummary(body);
+    await articleRef.update({
+        summary: summary
+    });
+    return summary;
+});
+
+const getAnswer = async (body, question) => {
+
+    const bodyParsed = body.replace(/(?:\r\n|\r|\n)/g, ' ');
+    const instructionText = `Your task is to read the following news article and answer questions based on its content. Please provide detailed and accurate responses to the questions. Avoid providing personal opinions or unrelated information. Here is the news article:'${bodyParsed}'`;
+    console.log(instructionText);
+
+    const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: instructionText,
+    });
+
+    const generationConfig = {
+        temperature: 1,
+        topP: 0.95,
+        topK: 64,
+        maxOutputTokens: 8192,
+        responseMimeType: "text/plain",
+    };
+
+    const safetySettings = [
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        },
+    ];
+
+    const chatSession = model.startChat({
+        generationConfig,
+        safetySettings,
+        history: [],
+    });
+    
+    const result = await chatSession.sendMessage(question);
+    return result.response.text();
+}
+
+exports.getArticleAnswer = functions.https.onCall(async (data, context) => {
+    const answer = await getAnswer(data.body, data.question);
+    return answer;
+});
