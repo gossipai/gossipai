@@ -1,14 +1,59 @@
-import { Box, Stack, Typography, Card, IconButton, CardCover, CardContent } from '@mui/joy';
-import { AccessTime, ArrowBack, Newspaper } from '@mui/icons-material';
-import { useEffect, useState } from 'react';
+import { functions } from '../firebase/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { Box, Stack, Typography, Card, IconButton, CardCover, CardContent, CircularProgress, Tabs, Tab, TabPanel, Input, Button, Sheet } from '@mui/joy';
+import { AccessTime, ArrowBack, AutoAwesome, Newspaper, Try } from '@mui/icons-material';
+import { useEffect, useState, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import formatTimePassed from '../utils/formatTimePassed';
 import { useAuth } from '../firebase/auth';
+import TabListStyled from '../components/TabListStyled';
+import ChatMessage from '../components/ChatMessage';
 
 export default function ArticlePage({ articleId, onBack }) {
   const { authUser } = useAuth();
   const [article, setArticle] = useState({});
+  const [summary, setSummary] = useState(null);
+  const [messageInput, setMessageInput] = useState("");
+  const [chatMessages, setChatMessages] = useState([]);
+  const [answerLoading, setAnswerLoading] = useState(false);
+  
+  const chatContainerRef = useRef(null);
+
+  const handleMessageInput = (e) => {
+    setMessageInput(e.target.value);
+  }
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    sendMessage();
+  }
+
+  const sendMessage = async () => {
+    if (messageInput) {
+      const newMessage = {
+        owner: "user",
+        text: messageInput
+      };
+      setChatMessages(prevMessages => [...prevMessages, newMessage]);
+      setMessageInput("");
+      setAnswerLoading(true);
+      httpsCallable(functions, 'getArticleAnswer')({ body: article.body, question: messageInput })
+      .then((result) => {
+        const answerMessage = {
+          owner: "bot",
+          text: result.data
+        };
+        setChatMessages(prevMessages => [...prevMessages, answerMessage]);
+        setAnswerLoading(false);
+      })
+      .catch((error) => {
+        console.log(error);
+        setAnswerLoading(false);
+      }
+      );
+    }
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -16,7 +61,19 @@ export default function ArticlePage({ articleId, onBack }) {
     getDoc(doc(db, "news", articleId)).then((doc) => {
       if (isMounted) {
         if (doc.exists()) {
-          setArticle(doc.data());
+          let articleData = doc.data();
+          if (!articleData.summary){
+            httpsCallable(functions, 'getArticleSummary')({ articleId: doc.id, body: articleData.body })
+            .then((result) => {
+              setSummary(result.data);
+            })
+            .catch((error) => {
+              console.log(error);
+            });
+          }else{
+            setSummary(articleData.summary);
+          }
+          setArticle(articleData);
         } else {
           console.log("No such document!");
         }
@@ -61,7 +118,15 @@ export default function ArticlePage({ articleId, onBack }) {
     };
   }, [articleId, authUser.uid]);
 
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
   return (
+    <>
+    { article &&
     <Stack spacing={2} direction="column" sx={{height:1}}>
         <Card sx={{ height: '180px', width: 1, borderRadius: 0, border: 0}}>
           <Box>
@@ -108,11 +173,81 @@ export default function ArticlePage({ articleId, onBack }) {
             </Stack>
           </CardContent>
         </Card>
-        <Stack spacing={1} direction="column" px={2} sx={{overflow:"scroll"}}>
-          <Typography level="body-sm">
-            {article.body}
-          </Typography >
-      </Stack>
+        <Tabs sx={{overflowY: "scroll", height:1, marginTop: "0px!important"}}>
+          <TabListStyled>
+            <Tab>
+              <AutoAwesome fontSize="sm" />
+              Summary
+            </Tab>
+            <Tab>
+              <Newspaper fontSize="sm" />
+              Article</Tab>
+            <Tab>
+              <Try fontSize="sm" />
+              Ask</Tab>
+          </TabListStyled>
+          <TabPanel keepMounted sx={{overflowY:"scroll"}} value={0}>
+              {
+                article && summary && (
+                  <Typography level="body-sm">
+                    {summary}
+                  </Typography>
+                )
+              }{
+                article && !summary && (
+                  <Box textAlign="center">
+                    <CircularProgress>
+                      <AutoAwesome fontSize="lg" color="primary" />
+                    </CircularProgress>
+                    <Typography level="body-sm">
+                      Generating AI summary...
+                    </Typography>
+                  </Box>
+                )
+              }
+          </TabPanel>
+          <TabPanel keepMounted sx={{overflowY:"scroll"}} value={1}>
+              {
+                article && (
+                  <Typography level="body-sm">
+                    {article.body}
+                  </Typography>
+                )
+              }
+          </TabPanel>
+          <TabPanel keepMounted sx={{overflowY:"scroll", height:1, padding:0}} value={2}>
+              <Stack direction="column" justifyContent="space-between" height={1}>
+                <Stack direction="column" flexGrow={1} spacing={1} p={2} overflow="auto" overflowY="scroll" ref={chatContainerRef}>
+                  {
+                    chatMessages.map((message, index) => 
+                      <ChatMessage key={index} owner={message.owner} message={message.text}/>
+                    )
+                  }
+                  {
+                    answerLoading && (
+                      <Box textAlign="center">
+                        <CircularProgress>
+                          <AutoAwesome fontSize="lg" color="primary" />
+                        </CircularProgress>
+                      </Box>
+                    )
+                  }
+                </Stack>
+                <Sheet variant="soft" sx={{p:1.5, borderTop:1, borderColor:"divider"}}>
+                  <form onSubmit={handleSendMessage}>
+                    <Stack direction="row" spacing={1}>
+                        <Input value={messageInput} placeholder="Ask a question..." sx={{flexGrow:1}} onChange={handleMessageInput}/>
+                        <Button color="primary" type="submit" disabled={answerLoading} loading={answerLoading}>
+                          Send
+                        </Button>
+                    </Stack>
+                  </form>
+                </Sheet>
+              </Stack>
+          </TabPanel>
+        </Tabs>
     </Stack>
+    }
+    </>
   );
 }
