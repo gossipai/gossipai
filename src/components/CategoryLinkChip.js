@@ -4,12 +4,13 @@ import Box from '@mui/joy/Box';
 export default function CategoryLinkChip({ category, selected, onClick }) {
   return (
     <Box
+    mr={0.5}
     sx={{
       display: 'inline',
     }}
     >
       <Chip
-      color={selected ? 'primary' : 'neutral'}
+      color="primary"
       variant={selected ? 'solid' : 'soft'}
       size="lg"
       name={category}
