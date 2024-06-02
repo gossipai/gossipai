@@ -18,6 +18,10 @@ export default function ArticlePage({ articleId, onBack }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [answerLoading, setAnswerLoading] = useState(false);
   
+  const isQuestionAsked = false;
+  const userRef = doc(db, "users", authUser.uid);
+  const userDoc = getDoc(userRef).data();
+
   const chatContainerRef = useRef(null);
 
   const handleMessageInput = (e) => {
@@ -46,6 +50,13 @@ export default function ArticlePage({ articleId, onBack }) {
         };
         setChatMessages(prevMessages => [...prevMessages, answerMessage]);
         setAnswerLoading(false);
+        const articleCategory = article.category;
+        const categories = userDoc.categories;
+        if (!isQuestionAsked && articleCategory && categories[articleCategory] !== 1){
+          categories[articleCategory] += 0.01;
+          setDoc(userRef, { categories }, { merge: true });
+        }
+        isQuestionAsked = true;
       })
       .catch((error) => {
         console.log(error);
@@ -95,18 +106,16 @@ export default function ArticlePage({ articleId, onBack }) {
     }
     const timer = setTimeout(() => {
       const updateUserReadArticles = async () => {
-        const userRef = doc(db, "users", authUser.uid);
-        const userDoc = await getDoc(userRef);
-        if (isMounted && userDoc.exists()) {
-          const user = userDoc.data();
+        if (isMounted) {
+          const user = userDoc;
           const newsRead = user.newsRead || [];
           const categories = user.categories;
           if (!newsRead.includes(articleId)) {
             newsRead.push(articleId);
             const articleCategory = article.category;
             if (articleCategory) {
-              if (categories[articleCategory]) {
-                categories[articleCategory] += 0.03;
+              if (categories[articleCategory] && categories[articleCategory] <= 0.98) {
+                categories[articleCategory] += 0.02;
               }
             }
           }
