@@ -10,6 +10,7 @@ const config = functions.config();
 
 const SIMILAR_NEWS_LIMIT = 20;
 const COSINE_THRESHOLD = 0.749;
+const RECOMMENDATION_THRESHOLD = 0.37;
 const EMBEDDING_DIMENSIONS = 2048;
 const EMBEDDING_MODEL = "text-embedding-3-large";
 const OPENAI_API_KEY = config.openai.apikey;
@@ -100,21 +101,32 @@ exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpda
 
         const users = new Set();
 
+        const articleCategory = newsData.category;
+
         const similarNewsIds = newsData.similarNews.map(article => article.id)
         const userNewsQuery = db.collection('users').where("newsRead", "array-contains-any", similarNewsIds);
         
         const userNewsSnapshot = await userNewsQuery.get();
 
         userNewsSnapshot.forEach(user => {
-            users.add(user.id);
+            const userData = user.data();
+            const readArticleID = userData.newsRead.find(article => similarNewsIds.includes(article));
+            const cosine = newsData.similarNews.find(article => article.id === readArticleID).cosine;
+            const recommendationScore = cosine * userData.categories[articleCategory];
+            if (recommendationScore > RECOMMENDATION_THRESHOLD) {
+                console.log("PASS " + readArticleID + " User: " + user.id + " Recommendation Score: " + recommendationScore);
+                users.add(user.id);
+            }else{
+                console.log("FAIL " + readArticleID + " User: " + user.id + " Recommendation Score: " + recommendationScore);
+            }
         });
         
         if(users.size > 0){
-          const currentArticle = db.collection("finalNews").doc(documentId);
-          currentArticle.set({
+            const currentArticle = db.collection("finalNews").doc(documentId);
+            currentArticle.set({
             recommendedUsers: [...users],
             ...newsData
-          });
+            });
         }
         
         return;
@@ -205,7 +217,25 @@ exports.onNewsCreate = functions.firestore.document("/news/{documentId}").onCrea
 exports.createUserDocument = functions.auth.user().onCreate((user) => {
     const userRef = db.collection("users").doc(user.uid);
     return userRef.set({
-        newsRead: []
+        newsRead: [],
+        categories: {
+            "politics": 0.5,
+            "business": 0.5,
+            "technology": 0.5,
+            "science": 0.5,
+            "health": 0.5,
+            "entertainment": 0.5,
+            "sports": 0.5,
+            "travel": 0.5,
+            "lifestyle": 0.5,
+            "environment": 0.5,
+            "education": 0.5,
+            "crime": 0.5,
+            "fashion": 0.5,
+            "food": 0.5,
+            "celebrity": 0.5,
+            "art": 0.5,
+        },
     });
   });
 
@@ -270,7 +300,7 @@ exports.getArticleSummary = functions.https.onCall(
 const getAnswer = async (body, question) => {
 
     const bodyParsed = body.replace(/(?:\r\n|\r|\n)/g, ' ');
-    const instructionText = `Your task is to answer questions about a news article. Here are the guidelines to follow:\nFocus on Article: Answer questions directly using the provided news article.\nRelevant & Missing Info: If relevant but missing from the article, use general knowledge for brief answers.\nMention using general knowledge (e.g., \"beyond the article\").\nIrrelevant Questions: Refuse entirely irrelevant questions.\n\nExample:\nQuestion: France capital? (Not in article)\nAnswer: Beyond this article, France's capital is Paris.\n\nHere is the article content:'${bodyParsed}'`;
+    const instructionText = `Your task is to answer questions about a news article. Here are the guidelines to follow:\nFocus on Article: Answer questions directly using the provided news article.\nRelevant & Missing Info: If relevant but missing from the article, use general knowledge for brief answers.\nMention using general knowledge (e.g., "beyond the article").\nIrrelevant Questions: Refuse to answer to the irrelevant questions.\n\nExample:\nQuestion: France capital? (Not in but relevant to the article)\nAnswer: Beyond this article, France's capital is Paris.\nExample 2:\nQuestion 2: France capital? (Neither in the article, nor related to the article)\nAnswer 2: I am only here to answer your questions related to the article.\nExample 3: \nQuestion 3: France capital? (in the article)\nAnswer: Paris is the capital of France.\n\nHere is the article content:'${bodyParsed}'`;
 
     const model = genAI.getGenerativeModel({
         model: "gemini-1.5-flash",

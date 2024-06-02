@@ -50,8 +50,7 @@ export default function ArticlePage({ articleId, onBack }) {
       .catch((error) => {
         console.log(error);
         setAnswerLoading(false);
-      }
-      );
+      });
     }
   }
 
@@ -70,7 +69,7 @@ export default function ArticlePage({ articleId, onBack }) {
             .catch((error) => {
               console.log(error);
             });
-          }else{
+          } else {
             setSummary(articleData.summary);
           }
           setArticle(articleData);
@@ -91,30 +90,39 @@ export default function ArticlePage({ articleId, onBack }) {
 
   useEffect(() => {
     let isMounted = true;
-
-    const updateUserReadArticles = async () => {
-      const userRef = doc(db, "users", authUser.uid);
-      const userDoc = await getDoc(userRef);
-      if (isMounted && userDoc.exists()) {
-        const user = userDoc.data();
-        const newsRead = user.newsRead || [];
-        if (!newsRead.includes(articleId)) {
-          newsRead.push(articleId);
-          await setDoc(userRef, { newsRead }, { merge: true });
+    const timer = setTimeout(() => {
+      const updateUserReadArticles = async () => {
+        const userRef = doc(db, "users", authUser.uid);
+        const userDoc = await getDoc(userRef);
+        if (isMounted && userDoc.exists()) {
+          const user = userDoc.data();
+          const newsRead = user.newsRead || [];
+          const categories = user.categories || {};
+          const articleCategory = article.category;
+          if (articleCategory) {
+            if (categories[articleCategory]) {
+              categories[articleCategory] += 0.03;
+            }
+          }
+          if (!newsRead.includes(articleId)) {
+            newsRead.push(articleId);
+          }
+          await setDoc(userRef, { ...user, newsRead, categories });
+        } else if (isMounted) {
+          console.log("No such document!");
         }
-      } else if (isMounted) {
-        console.log("No such document!");
-      }
-    };
+      };
 
-    updateUserReadArticles().catch((error) => {
-      if (isMounted) {
-        console.log("Error updating document:", error);
-      }
-    });
+      updateUserReadArticles().catch((error) => {
+        if (isMounted) {
+          console.log("Error updating document:", error);
+        }
+      });
+    }, 10000);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
     };
   }, [articleId, authUser.uid]);
 
@@ -126,67 +134,69 @@ export default function ArticlePage({ articleId, onBack }) {
 
   return (
     <>
-    { article &&
-    <Stack spacing={2} direction="column" sx={{height:1}}>
-        <Card sx={{ height: '180px', width: 1, borderRadius: 0, border: 0}}>
-          <Box>
-            <IconButton sx={{zIndex: 1000, borderRadius: 10000, opacity: 0.75}} 
-            variant="solid"
-            color="neutral" 
-            size="sm"
-            onClick={onBack}
-            >
-              <ArrowBack />
-            </IconButton>
-          </Box>
-          <CardCover>
-            <img
-              src={article.image}
-              loading="lazy"
-              alt=""
+      { article &&
+        <Stack spacing={2} direction="column" sx={{height:1}}>
+          <Card sx={{ height: '180px', width: 1, borderRadius: 0, border: 0}}>
+            <Box>
+              <IconButton sx={{zIndex: 1000, borderRadius: 10000, opacity: 0.75}} 
+                variant="solid"
+                color="neutral" 
+                size="sm"
+                onClick={onBack}
+              >
+                <ArrowBack />
+              </IconButton>
+            </Box>
+            <CardCover>
+              <img
+                src={article.image}
+                loading="lazy"
+                alt=""
+              />
+            </CardCover>
+            <CardCover
+              sx={{
+                background:
+                  'linear-gradient(to top, rgba(0,0,0,0.4), rgba(0,0,0,0) 200px), linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0) 300px)',
+              }}
             />
-          </CardCover>
-          <CardCover
-            sx={{
-              background:
-                'linear-gradient(to top, rgba(0,0,0,0.4), rgba(0,0,0,0) 200px), linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0) 300px)',
-            }}
-          />
-          <CardContent sx={{ justifyContent: 'flex-end'}}>
-            <Typography level="title-lg" textColor="#fff">
-              {article.title}
-            </Typography>
-            <Stack direction="row" justifyContent="space-between">
-              <Typography
-                startDecorator={<Newspaper />}
-                level="body-xs"
-                textColor="neutral.300"
-              >
-                {article.source}
+            <CardContent sx={{ justifyContent: 'flex-end'}}>
+              <Typography level="title-lg" textColor="#fff">
+                {article.title}
               </Typography>
-              <Typography
-                endDecorator={<AccessTime />}
-                level="body-xs"
-              >
-                {formatTimePassed(article.dateTime)}
-              </Typography>
-            </Stack>
-          </CardContent>
-        </Card>
-        <Tabs sx={{overflowY: "scroll", height:1, marginTop: "0px!important"}}>
-          <TabListStyled>
-            <Tab>
-              <AutoAwesome fontSize="sm" />
-              Summary
-            </Tab>
-            <Tab>
-              <Newspaper fontSize="sm" />
-              Article</Tab>
-            <Tab>
-              <Try fontSize="sm" />
-              Ask</Tab>
-          </TabListStyled>
-          <TabPanel keepMounted sx={{overflowY:"scroll"}} value={0}>
+              <Stack direction="row" justifyContent="space-between">
+                <Typography
+                  startDecorator={<Newspaper />}
+                  level="body-xs"
+                  textColor="neutral.300"
+                >
+                  {article.source}
+                </Typography>
+                <Typography
+                  endDecorator={<AccessTime />}
+                  level="body-xs"
+                >
+                  {formatTimePassed(article.dateTime)}
+                </Typography>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Tabs sx={{overflowY: "scroll", height:1, marginTop: "0px!important"}}>
+            <TabListStyled>
+              <Tab>
+                <AutoAwesome fontSize="sm" />
+                Summary
+              </Tab>
+              <Tab>
+                <Newspaper fontSize="sm" />
+                Article
+              </Tab>
+              <Tab>
+                <Try fontSize="sm" />
+                Ask
+              </Tab>
+            </TabListStyled>
+            <TabPanel keepMounted sx={{overflowY:"scroll"}} value={0}>
               {
                 article && summary && (
                   <Typography level="body-sm">
@@ -205,17 +215,17 @@ export default function ArticlePage({ articleId, onBack }) {
                   </Box>
                 )
               }
-          </TabPanel>
-          <TabPanel keepMounted sx={{overflowY:"scroll"}} value={1}>
+            </TabPanel>
+            <TabPanel keepMounted sx={{overflowY:"scroll"}} value={1}>
               {
                 article && (
                   <Typography level="body-sm">
-                    {article.body}
+                    {article.body && article.body.split("\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}
                   </Typography>
                 )
               }
-          </TabPanel>
-          <TabPanel keepMounted sx={{overflowY:"scroll", height:1, padding:0}} value={2}>
+            </TabPanel>
+            <TabPanel keepMounted sx={{overflowY:"scroll", height:1, padding:0}} value={2}>
               <Stack direction="column" justifyContent="space-between" height={1}>
                 <Stack direction="column" flexGrow={1} spacing={1} p={2} overflow="auto" overflowY="scroll" ref={chatContainerRef}>
                   {
@@ -236,18 +246,18 @@ export default function ArticlePage({ articleId, onBack }) {
                 <Sheet variant="soft" sx={{p:1.5, borderTop:1, borderColor:"divider"}}>
                   <form onSubmit={handleSendMessage}>
                     <Stack direction="row" spacing={1}>
-                        <Input value={messageInput} placeholder="Ask a question..." sx={{flexGrow:1}} onChange={handleMessageInput}/>
-                        <Button color="primary" type="submit" disabled={answerLoading} loading={answerLoading}>
-                          Send
-                        </Button>
+                      <Input value={messageInput} placeholder="Ask a question..." sx={{flexGrow:1}} onChange={handleMessageInput}/>
+                      <Button color="primary" type="submit" disabled={answerLoading} loading={answerLoading}>
+                        Send
+                      </Button>
                     </Stack>
                   </form>
                 </Sheet>
               </Stack>
-          </TabPanel>
-        </Tabs>
-    </Stack>
-    }
+            </TabPanel>
+          </Tabs>
+        </Stack>
+      }
     </>
   );
 }
