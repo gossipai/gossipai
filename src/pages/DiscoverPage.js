@@ -93,7 +93,7 @@ export default function DiscoverPage() {
         )}
       </Stack>
       <Modal open={selectedArticle !== null} onClose={() => setSelectedArticle(null)}>
-        <ModalDialog layout="fullscreen" sx={{p:0, height: "100vh"}}>
+        <ModalDialog layout="fullscreen" sx={{p:0, height: "100dvh"}}>
           <ArticlePage articleId={selectedArticle} onBack={() => setSelectedArticle(null)}/>
         </ModalDialog>
       </Modal>
