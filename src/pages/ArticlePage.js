@@ -175,7 +175,7 @@ export default function ArticlePage({ articleId, onBack }) {
                     </Box>
                   )}
                 </Stack>
-                <Sheet variant="soft" sx={{ p: 1.5, borderTop: 1, borderColor: "divider" }}>
+                <Sheet variant="soft" sx={{ px: 1.5, pt:1.5, pb:3.5,  borderTop: 1, borderColor: "divider" }}>
                   <form onSubmit={handleSendMessage}>
                     <Stack direction="row" spacing={1}>
                       <Input value={messageInput} placeholder="Ask a question..." sx={{ flexGrow: 1 }} onChange={(e) => setMessageInput(e.target.value)} />
