@@ -90,6 +90,9 @@ export default function ArticlePage({ articleId, onBack }) {
 
   useEffect(() => {
     let isMounted = true;
+    if(!article.category){
+      return;
+    }
     const timer = setTimeout(() => {
       const updateUserReadArticles = async () => {
         const userRef = doc(db, "users", authUser.uid);
@@ -97,17 +100,17 @@ export default function ArticlePage({ articleId, onBack }) {
         if (isMounted && userDoc.exists()) {
           const user = userDoc.data();
           const newsRead = user.newsRead || [];
-          const categories = user.categories || {};
-          const articleCategory = article.category;
-          if (articleCategory) {
-            if (categories[articleCategory]) {
-              categories[articleCategory] += 0.03;
-            }
-          }
+          const categories = user.categories;
           if (!newsRead.includes(articleId)) {
             newsRead.push(articleId);
+            const articleCategory = article.category;
+            if (articleCategory) {
+              if (categories[articleCategory]) {
+                categories[articleCategory] += 0.03;
+              }
+            }
           }
-          await setDoc(userRef, { ...user, newsRead, categories });
+          await setDoc(userRef, { newsRead, categories }, { merge: true });
         } else if (isMounted) {
           console.log("No such document!");
         }
@@ -124,7 +127,7 @@ export default function ArticlePage({ articleId, onBack }) {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [articleId, authUser.uid]);
+  }, [article.category, articleId, authUser.uid]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
