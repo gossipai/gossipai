@@ -270,8 +270,7 @@ exports.getArticleSummary = functions.https.onCall(
 const getAnswer = async (body, question) => {
 
     const bodyParsed = body.replace(/(?:\r\n|\r|\n)/g, ' ');
-    const instructionText = `Your task is to read the following news article and answer questions based on its content. Please provide detailed and accurate responses to the questions. Avoid providing personal opinions or unrelated information. Here is the news article:'${bodyParsed}'`;
-    console.log(instructionText);
+    const instructionText = `Your task is to answer questions about a news article. Here are the guidelines to follow:\nFocus on Article: Answer questions directly using the provided news article.\nRelevant & Missing Info: If relevant but missing from the article, use general knowledge for brief answers.\nMention using general knowledge (e.g., \"beyond the article\").\nIrrelevant Questions: Refuse entirely irrelevant questions.\n\nExample:\nQuestion: France capital? (Not in article)\nAnswer: Beyond this article, France's capital is Paris.\n\nHere is the article content:'${bodyParsed}'`;
 
     const model = genAI.getGenerativeModel({
         model: "gemini-1.5-flash",
