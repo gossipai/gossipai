@@ -1,5 +1,5 @@
 import { Box, Divider, Grid, Sheet, Stack } from "@mui/joy";
-import Logo from "./Logo";
+import LogoWhite from "./LogoWhite";
 
 export default function LayoutAuth({children}) {
   return (
@@ -9,7 +9,7 @@ export default function LayoutAuth({children}) {
               <Grid container justifyContent="center" alignItems="center" p={3}>
                 <Grid xs={12} md={8} lg={4}>
                   <Box sx={{mb:4}}>
-                    <Logo color="white"/>
+                    <LogoWhite/>
                   </Box>
                   {children}
                 </Grid>

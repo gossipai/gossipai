@@ -1,5 +1,5 @@
 import { Dropdown, IconButton, Menu, MenuButton, MenuItem, Stack, Typography } from "@mui/joy";
-import Logo from "./Logo";
+import LogoBlue from "./LogoBlue";
 import { Person } from "@mui/icons-material";
 import { useAuth } from "../firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -12,7 +12,7 @@ export default function Header() {
 
   return (
     <Stack direction="row" p={1} borderBottom={1} borderColor="divider" justifyContent="space-between">
-      <Logo/>
+      <LogoBlue/>
       <Dropdown>
         <MenuButton
           slots={{ root: IconButton }}
