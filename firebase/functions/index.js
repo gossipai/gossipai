@@ -96,13 +96,15 @@ exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpda
     const newsData = change.after.data();
     const { documentId } = context.params;
 
+    if (newsData.summary) {
+        return;
+    }
+
     // if similar news exist, find related customers and send the article
     if (newsData.similarNews) {
 
         const users = new Set();
-
         const articleCategory = newsData.category;
-
         const similarNewsIds = newsData.similarNews.map(article => article.id)
         const userNewsQuery = db.collection('users').where("newsRead", "array-contains-any", similarNewsIds);
         
