@@ -10,7 +10,7 @@ const config = functions.config();
 
 const SIMILAR_NEWS_LIMIT = 20;
 const COSINE_THRESHOLD = 0.749;
-const RECOMMENDATION_THRESHOLD = 0.37;
+const RECOMMENDATION_THRESHOLD = 0.20;
 const EMBEDDING_DIMENSIONS = 2048;
 const EMBEDDING_MODEL = "text-embedding-3-large";
 const OPENAI_API_KEY = config.openai.apikey;
@@ -27,6 +27,11 @@ admin.initializeApp();
 
 const db = new Firestore();
 const logger = functions.logger;
+
+function normalizeCosine(score) {
+    return (score - 0.7) / 0.2;
+}
+
 
 function averageEmbedding(vectors) {
     if (vectors.length === 0) {
@@ -114,7 +119,7 @@ exports.onNewsUpdate = functions.firestore.document("/news/{documentId}").onUpda
             const userData = user.data();
             const readArticleID = userData.newsRead.find(article => similarNewsIds.includes(article));
             const cosine = newsData.similarNews.find(article => article.id === readArticleID).cosine;
-            const recommendationScore = cosine * userData.categories[articleCategory];
+            const recommendationScore = normalizeCosine(cosine) * userData.categories[articleCategory];
             if (recommendationScore > RECOMMENDATION_THRESHOLD) {
                 console.log("PASS " + readArticleID + " User: " + user.id + " Recommendation Score: " + recommendationScore);
                 users.add(user.id);
