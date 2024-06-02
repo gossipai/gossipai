@@ -12,8 +12,6 @@ import { useAuth } from '../firebase/auth';
 import TabListStyled from '../components/TabListStyled';
 import ChatMessage from '../components/ChatMessage';
 
-var questionAsked = false;
-
 export default function ArticlePage({ articleId, onBack }) {
   const { authUser } = useAuth();
   const [article, setArticle] = useState({});
@@ -21,6 +19,7 @@ export default function ArticlePage({ articleId, onBack }) {
   const [messageInput, setMessageInput] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
   const [answerLoading, setAnswerLoading] = useState(false);
+  const [questionAsked, setQuestionAsked] = useState(false);
   const chatContainerRef = useRef(null);
 
   useEffect(() => {
@@ -98,7 +97,7 @@ export default function ArticlePage({ articleId, onBack }) {
         categories[article.category] = Math.min((categories[article.category] || 0) + 0.01, 1);
         await setDoc(userRef, { categories }, { merge: true });
       }
-      questionAsked = true;
+      setQuestionAsked(true);
     } catch (error) {
       console.log(error);
     } finally {
