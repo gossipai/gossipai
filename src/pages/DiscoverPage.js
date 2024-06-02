@@ -83,7 +83,7 @@ export default function DiscoverPage() {
         )}
       </Sheet>
       <Stack spacing={2} p={2} direction="column" mt={5}>
-        {news.map((article, index) => 
+        {news.filter(article => article.category).map((article, index) => 
           <NewsCard key={article.id} article={article} onClick={handleArticleClick} />
         )}
         {hasMore && (
