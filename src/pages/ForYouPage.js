@@ -45,6 +45,19 @@ export default function ForYouPage() {
     }
   };
 
+  const nextArticle = () => {
+    setLoading(true);
+    const articleRef = doc(db, "finalNews", article.id);
+    updateDoc(articleRef, {recommendedUsers: [...article.recommendedUsers.filter(u => u !== authUser.uid)]})
+    .catch((error) => {
+      alert("Error updating document: ", error);
+    })
+    .finally(() => {
+      setArticle(null);
+      setLoading(false);
+    });
+  }
+
   const skipArticle = () => {
     setLoading(true);
     const articleRef = doc(db, "finalNews", article.id);
@@ -106,7 +119,7 @@ export default function ForYouPage() {
             <Button color="primary" variant="solid"
             onClick={()=>{
               setSelectedArticle(article.id);
-              skipArticle();
+              nextArticle();
             }}
             sx={{flexGrow:1}}>
               Read Article
